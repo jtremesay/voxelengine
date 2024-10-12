@@ -54,7 +54,7 @@ class MainWindow(mglw.WindowConfig):
         half_size = world_size // 2
         for x in range(-half_size, half_size):
             for z in range(-half_size, half_size):
-                self.world.get_chunk(WCPosition(x, z))
+                self.world.create_chunk(WCPosition(x, z))
 
         print("Generating mesh…")
         self.voxel, self.voxels_count = self.world.create_vao()

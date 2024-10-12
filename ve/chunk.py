@@ -41,7 +41,7 @@ class Chunk:
                 position = CVPosition(x, y, z)
                 self.set_voxel(position, voxel_kind)
 
-    def __iter__(self) -> Generator[CVPosition, None, None]:
+    def iter_voxels(self) -> Generator[CVPosition, None, None]:
         yield from self.voxels
 
     def generate(self, position: WCPosition) -> None:
