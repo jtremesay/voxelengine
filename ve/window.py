@@ -7,9 +7,11 @@ import moderngl_window as mglw
 import moderngl_window.geometry as mglw_geometry
 import moderngl_window.scene as mglw_scene
 import numpy as np
-from pyrr import Matrix44, Vector3
+from pyrr import Matrix44
 
-from ve.chunk import Chunk, filter_chunk, generate_chunk
+from ve.chunk import Chunk
+from ve.geometry import WCPosition, WVPosition, world_position_as_chunk_position
+from ve.world import World
 
 
 class MainWindow(mglw.WindowConfig):
@@ -43,28 +45,17 @@ class MainWindow(mglw.WindowConfig):
             Matrix44.from_x_rotation(math.pi / 2, dtype="f4")
         )
 
-        # Create a chunk
-        print("Generating chunk…")
-        start = time.monotonic()
-        chunk = generate_chunk()
-        duration = time.monotonic() - start
-        print("Chunk generated in", duration, "seconds")
+        # Create the world
+        self.world = World()
+
+        # Create 4x4 chunks around the origin
+        print("Generating chunks…")
+        for x in range(-2, 2):
+            for z in range(-2, 2):
+                self.world.get_chunk(WCPosition(x, z))
 
         print("Generating mesh…")
-        start = time.monotonic()
-        positions = []
-        block_ids = []
-        self.voxels_count = 0
-        for position in filter_chunk(chunk):
-            self.voxels_count += 1
-            positions.append(position)
-            block_ids.append(chunk.get_voxel(position))
-        duration = time.monotonic() - start
-        print("Mesh generated in", duration, "seconds")
-
-        self.voxel = mglw_geometry.cube(size=(1, 1, 1), uvs=False)
-        self.voxel.buffer(np.array(positions, dtype="f4"), "3f/i", ["in_offset"])
-        self.voxel.buffer(np.array(block_ids, dtype="i"), "i/i", ["in_block_id"])
+        self.voxel, self.voxels_count = self.world.create_vao()
 
         self.voxel_prog = self.load_program("programs/voxel.glsl")
         self.voxel_prog["m_model"].write(Matrix44.identity(dtype="f4"))
@@ -84,8 +75,8 @@ class MainWindow(mglw.WindowConfig):
         self.ctx.enable_only(mgl.DEPTH_TEST | mgl.CULL_FACE)
 
         # Update camera the camera
-        speed = 1 / 4  # rounds per second
-        self.camera.angle_x = math.degrees(time * speed * 2 * math.pi)
+        # speed = 1 / 4  # rounds per second
+        # self.camera.angle_x = math.degrees(time * speed * 2 * math.pi)
         mtx = self.camera.matrix
 
         # Render the ground
@@ -96,3 +87,9 @@ class MainWindow(mglw.WindowConfig):
         # Render the voxels
         self.voxel_prog["m_camera"].write(mtx)
         self.voxel.render(self.voxel_prog, instances=self.voxels_count)
+
+    def mouse_drag_event(self, x, y, dx, dy):
+        self.camera.rot_state(dx, dy)
+
+    def mouse_scroll_event(self, x_offset: float, y_offset: float):
+        self.camera.zoom_state(y_offset)
