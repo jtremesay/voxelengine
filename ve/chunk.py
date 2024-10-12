@@ -1,7 +1,9 @@
 import math
 from typing import Generator
 
-from ve.geometry import CVPosition, Direction, WCPosition
+import opensimplex
+
+from ve.geometry import CVPosition, WCPosition
 from ve.voxel import VoxelKind
 
 
@@ -47,9 +49,11 @@ class Chunk:
         self.clear()
 
         # Fill the bottom half with water
-        water_1 = half_size
+        water_1 = half_size // 2
         for y in range(water_1):
             self.fill_slice(y, VoxelKind.WATER)
+
+        noise = opensimplex.OpenSimplex(seed=42)
 
         for z in range(Chunk.SIZE):
             for x in range(Chunk.SIZE):
@@ -59,11 +63,12 @@ class Chunk:
 
                 y = half_size  # base height
                 y += (
-                    math.sin((position.x * Chunk.SIZE + x) / 100 * 2 * math.pi) * 8
-                )  # x contribution
-                y += (
-                    math.cos((position.z * Chunk.SIZE + z) / 120 * 2 * math.pi) * 6
-                )  # z contribution
+                    noise.noise2(
+                        (position.x * Chunk.SIZE + x) / 32,
+                        (position.z * Chunk.SIZE + z) / 32,
+                    )
+                    * 16
+                )
                 y = math.floor(y)  # truncate to integer
 
                 # Fill the bottom blocks with dirt

@@ -1,2 +1,4 @@
 moderngl
 moderngl-window
+
+opensimplex==0.4.5.1 
