@@ -4,7 +4,12 @@ from moderngl_window.opengl.vao import VAO
 from pyrr import Vector3
 
 from ve.chunk import Chunk
-from ve.geometry import WCPosition, WVPosition, world_position_as_chunk_position
+from ve.geometry import (
+    CVPosition,
+    WCPosition,
+    WVPosition,
+    world_position_as_chunk_position,
+)
 from ve.voxel import VoxelKind
 
 
@@ -56,6 +61,46 @@ class World:
 
         for wc_position, chunk in self.chunks.items():
             for cv_position, voxel_kind in chunk.voxels.items():
+                if voxel_kind == VoxelKind.NONE:
+                    continue
+
+                # Discard invisible voxels (e.g. below the ground)
+                if (
+                    cv_position.x > 0
+                    and cv_position.x < Chunk.SIZE - 1
+                    and cv_position.z > 0
+                    and cv_position.z < Chunk.SIZE - 1
+                    and cv_position.y > 0
+                    and cv_position.y < Chunk.SIZE - 1
+                ):
+                    if (
+                        chunk.get_voxel(
+                            CVPosition(cv_position.x - 1, cv_position.y, cv_position.z)
+                        )
+                        != VoxelKind.NONE
+                        and chunk.get_voxel(
+                            CVPosition(cv_position.x + 1, cv_position.y, cv_position.z)
+                        )
+                        != VoxelKind.NONE
+                        and chunk.get_voxel(
+                            CVPosition(cv_position.x, cv_position.y - 1, cv_position.z)
+                        )
+                        != VoxelKind.NONE
+                        and chunk.get_voxel(
+                            CVPosition(cv_position.x, cv_position.y + 1, cv_position.z)
+                        )
+                        != VoxelKind.NONE
+                        and chunk.get_voxel(
+                            CVPosition(cv_position.x, cv_position.y, cv_position.z - 1)
+                        )
+                        != VoxelKind.NONE
+                        and chunk.get_voxel(
+                            CVPosition(cv_position.x, cv_position.y, cv_position.z + 1)
+                        )
+                        != VoxelKind.NONE
+                    ):
+                        continue
+
                 positions.append(
                     (
                         wc_position.x * Chunk.SIZE + cv_position.x,

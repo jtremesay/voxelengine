@@ -30,7 +30,7 @@ class MainWindow(mglw.WindowConfig):
             radius=Chunk.SIZE * 2,
             aspect_ratio=self.aspect_ratio,
             angles=(0.0, 45.0),
-            far=Chunk.SIZE * 4,
+            far=Chunk.SIZE * 16,
         )
 
         # Create a reference ground
@@ -50,8 +50,10 @@ class MainWindow(mglw.WindowConfig):
 
         # Create 4x4 chunks around the origin
         print("Generating chunks…")
-        for x in range(-2, 2):
-            for z in range(-2, 2):
+        world_size = 16
+        half_size = world_size // 2
+        for x in range(-half_size, half_size):
+            for z in range(-half_size, half_size):
                 self.world.get_chunk(WCPosition(x, z))
 
         print("Generating mesh…")
