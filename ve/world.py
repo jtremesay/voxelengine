@@ -1,3 +1,5 @@
+import json
+from pathlib import Path
 from typing import Generator
 
 import moderngl_window.geometry as mglw_geometry
@@ -118,3 +120,30 @@ class World:
         vao.buffer(np.array(block_ids, dtype="i"), "i/i", ["in_block_id"])
 
         return vao, voxels_count
+
+    @classmethod
+    def create(cls, size: int) -> "World":
+        world = cls()
+        half_size = size // 2
+        for x in range(-half_size, half_size):
+            for z in range(-half_size, half_size):
+                world.create_chunk(WCPosition(x, z))
+
+        return world
+
+    def serialize(self) -> dict:
+        data = []
+        for position in self.iter_chunks():
+            data.append(
+                {
+                    "position": position,
+                    "chunk": self.get_chunk(position).serialize(),
+                }
+            )
+
+        return data
+
+    def save(self, path: str) -> None:
+        data = self.serialize()
+        with open(path, "w") as f:
+            json.dump(data, f, indent=4)

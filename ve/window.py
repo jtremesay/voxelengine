@@ -46,16 +46,10 @@ class MainWindow(mglw.WindowConfig):
         )
 
         # Create the world
-        self.world = World()
+        print("Generating world…")
+        self.world = World.create(8)
 
-        # Create 4x4 chunks around the origin
-        print("Generating chunks…")
-        world_size = 16
-        half_size = world_size // 2
-        for x in range(-half_size, half_size):
-            for z in range(-half_size, half_size):
-                self.world.create_chunk(WCPosition(x, z))
-
+        # Create the voxels
         print("Generating mesh…")
         self.voxel, self.voxels_count = self.world.create_vao()
 

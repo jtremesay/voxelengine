@@ -78,3 +78,15 @@ class Chunk:
                 # Top block is grass
                 if y >= water_1:
                     self.set_voxel(CVPosition(x, y, z), VoxelKind.GRASS)
+
+    def serialize(self) -> dict:
+        return {
+            "voxels": [
+                {
+                    "position": position,
+                    "voxel_kind": voxel_kind,
+                }
+                for position, voxel_kind in self.voxels.items()
+            ],
+            "default_voxel_kind": self.default_voxel_kind,
+        }
