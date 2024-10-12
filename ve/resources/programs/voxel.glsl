@@ -65,7 +65,7 @@ void main() {
 
     float l = dot(normalize(-pos), normalize(normal));
 
-    fragColor = color * (0.25 + abs(l) * 0.75);
+    fragColor = color * (0.25 + abs(l) * 0.60);
 
 }
 #endif
