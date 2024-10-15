@@ -41,6 +41,8 @@ void main() {
 #define BLOCK_GRASS 1
 #define BLOCK_DIRT 2
 #define BLOCK_WATER 3
+#define BLOCK_TRUNK 4
+#define BLOCK_LEAF 5
 
 out vec4 fragColor;
 
@@ -57,6 +59,10 @@ void main() {
         color = vec4(0.0, 0.5, 0.0, 1.0);
     } else if (block_id == BLOCK_WATER) {
         color = vec4(0.0, 0.0, 1.0, 1.0);
+    } else if (block_id == BLOCK_TRUNK) {
+        color = vec4(0.5, 0.3, 0.0, 1.0);
+    } else if (block_id == BLOCK_LEAF) {
+        color = vec4(0.0, 0.8, 0.0, 1.0);
     } else if (block_id == BLOCK_NONE) {
         color = vec4(0.2, 0.2, 0.2, 0.0);
     } else {

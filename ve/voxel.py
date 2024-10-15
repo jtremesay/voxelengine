@@ -8,3 +8,5 @@ class VoxelKind(IntEnum):
     GRASS = 1
     DIRT = 2
     WATER = 3
+    TRUNK = 4
+    LEAF = 5
