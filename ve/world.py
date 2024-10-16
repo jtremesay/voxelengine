@@ -12,6 +12,7 @@ from ve.voxel import VoxelKind
 
 type VoxelKey = tuple[float, float, float]
 import random
+import sys
 
 
 class World:
@@ -74,9 +75,9 @@ def generate_tree(world: World, position: Vector3) -> None:
     for y in range(5):
         world.set_voxel(position + Vector3((0, y, 0)), VoxelKind.TRUNK)
 
-    for y in range(5, 8):
-        for x in range(-2, 3):
-            for z in range(-2, 3):
+    for x in range(-2, 3):
+        for z in range(-2, 3):
+            for y in range(5, 8):
                 world.set_voxel(position + Vector3((x, y, z)), VoxelKind.LEAF)
 
     for x in range(-1, 2):
@@ -84,8 +85,10 @@ def generate_tree(world: World, position: Vector3) -> None:
             world.set_voxel(position + Vector3((x, 8, z)), VoxelKind.LEAF)
 
 
-def generate_world(world: World) -> None:
-    noise = OpenSimplex(seed=42)
+def generate_world(world: World, seed=None) -> None:
+    if seed is None:
+        seed = random.randint(0, sys.maxsize)
+    noise = OpenSimplex(seed)
 
     half_height = world.size.y // 2
     for z in range(world.size.z):

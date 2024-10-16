@@ -1,4 +1,6 @@
 import math
+import random
+import sys
 from pathlib import Path
 
 import moderngl as mgl
@@ -22,15 +24,18 @@ class MainWindow(mglw.WindowConfig):
         super().__init__(**kwargs)
 
         # Create the world
-        print("Generating world…")
-        size = 32 * 8
-        world = World(Vector3((size, 32, size)))
-        generate_world(world)
+        self.seed = 42
+        self.world_size = 1
+        self.regen_world()
 
         # Create an orbit camera that orbits around the chunk
-        world_size = max(world.size.x, world.size.z, world.size.y)
+        world_size = max(self.world.size.x, self.world.size.z, self.world.size.y)
         self.camera = mglw_scene.camera.OrbitCamera(
-            target=(world.size.x / 2, world.size.y / 2, world.size.z / 2),
+            target=(
+                self.world.size.x / 2,
+                self.world.size.y / 2,
+                self.world.size.z / 2,
+            ),
             radius=world_size * 2,
             aspect_ratio=self.aspect_ratio,
             angles=(0.0, 45.0),
@@ -50,9 +55,6 @@ class MainWindow(mglw.WindowConfig):
         )
 
         # Create the voxels
-        print("Generating mesh…")
-        self.voxel, self.voxels_count = world.create_vao()
-
         self.voxel_prog = self.load_program("programs/voxel.glsl")
         self.voxel_prog["m_model"].write(Matrix44.identity(dtype="f4"))
         self.voxel_prog["m_proj"].write(self.camera.projection.matrix)
@@ -89,3 +91,24 @@ class MainWindow(mglw.WindowConfig):
 
     def mouse_scroll_event(self, x_offset: float, y_offset: float):
         self.camera.zoom_state(y_offset)
+
+    def key_event(self, key, action, modifiers):
+        print("key_event -", key, action, modifiers)
+        if action == self.wnd.keys.ACTION_PRESS:
+            if key == self.wnd.keys.R:
+                self.seed = random.randint(0, sys.maxsize)
+                self.regen_world()
+            elif key == self.wnd.keys.P:
+                self.world_size += 1
+                self.regen_world()
+            elif key == self.wnd.keys.M:
+                if self.world_size > 1:
+                    self.world_size -= 1
+                self.regen_world()
+
+    def regen_world(self):
+        print(f"Regenerating world of size {self.world_size}")
+        size = 32 * self.world_size
+        self.world = World(Vector3((size, 32, size)))
+        generate_world(self.world, self.seed)
+        self.voxel, self.voxels_count = self.world.create_vao()
