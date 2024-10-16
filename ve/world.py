@@ -1,72 +1,29 @@
-import json
-from pathlib import Path
+import math
 from typing import Generator
 
 import moderngl_window.geometry as mglw_geometry
 import numpy as np
 from moderngl_window.opengl.vao import VAO
+from opensimplex import OpenSimplex
 from pyrr import Vector3
 
-from ve.chunk import Chunk
-from ve.geometry import (
-    CVPosition,
-    WCPosition,
-    WVPosition,
-    world_position_as_chunk_position,
-    world_position_from_chunk_position,
-)
+from ve.geometry import Direction, VEVector3
 from ve.voxel import VoxelKind
 
 
 class World:
-    def __init__(
-        self,
-    ):
-        self.chunks: dict[WCPosition, Chunk] = {}
+    def __init__(self, size: VEVector3):
+        self.size = size
+        self.voxels: dict[VEVector3, VoxelKind] = {}
 
-    def create_chunk(self, position: WCPosition) -> Chunk:
-        chunk = Chunk()
-        chunk.generate(position)
-        self.set_chunk(position, chunk)
+    def get_voxel(self, position: VEVector3) -> int:
+        return self.voxels.get(position, VoxelKind.NONE)
 
-        return chunk
+    def set_voxel(self, position: VEVector3, voxel_kind: VoxelKind) -> None:
+        self.voxels[position] = voxel_kind
 
-    def get_chunk(self, position: WCPosition) -> Chunk | None:
-        return self.chunks.get(position, None)
-
-    def set_chunk(self, position: WCPosition, chunk: Chunk) -> None:
-        self.chunks[position] = chunk
-
-    def get_voxel(self, position: WVPosition) -> int:
-        wc_position, cv_position = world_position_as_chunk_position(
-            position, Chunk.SIZE
-        )
-
-        chunk = self.get_chunk(wc_position)
-        if chunk is None:
-            return VoxelKind.NONE
-
-        return chunk.get_voxel(cv_position)
-
-    def set_voxel(self, position: Vector3, voxel_kind: VoxelKind) -> None:
-        wc_position, cv_position = world_position_as_chunk_position(
-            position, Chunk.SIZE
-        )
-        chunk = self.get_chunk(wc_position)
-        chunk.set_voxel(cv_position, voxel_kind)
-
-    def __iter__(self):
-        yield from self.chunks
-
-    def iter_chunks(self) -> Generator[WCPosition, None, None]:
-        yield from self.chunks
-
-    def iter_voxels(self) -> Generator[WVPosition, None, None]:
-        for wc_position, chunk in self.chunks.items():
-            for cv_position in chunk.iter_voxels():
-                yield world_position_from_chunk_position(
-                    wc_position, cv_position, Chunk.SIZE
-                )
+    def iter_voxels(self) -> Generator[Vector3, None, None]:
+        yield from self.voxels
 
     def create_vao(self) -> tuple[VAO, int]:
         voxels_count = 0
@@ -78,40 +35,18 @@ class World:
             if voxel_kind == VoxelKind.NONE:
                 continue
 
-            # Discard voxels without any neighbors
-            if (
-                self.get_voxel(
-                    WVPosition(
-                        voxel_position.x + 1,
-                        voxel_position.y,
-                        voxel_position.z,
-                    )
-                )
-                != VoxelKind.NONE
-                and self.get_voxel(
-                    WVPosition(voxel_position.x - 1, voxel_position.y, voxel_position.z)
-                )
-                != VoxelKind.NONE
-                and self.get_voxel(
-                    WVPosition(voxel_position.x, voxel_position.y + 1, voxel_position.z)
-                )
-                != VoxelKind.NONE
-                and self.get_voxel(
-                    WVPosition(voxel_position.x, voxel_position.y - 1, voxel_position.z)
-                )
-                != VoxelKind.NONE
-                and self.get_voxel(
-                    WVPosition(voxel_position.x, voxel_position.y, voxel_position.z + 1)
-                )
-                != VoxelKind.NONE
-                and self.get_voxel(
-                    WVPosition(voxel_position.x, voxel_position.y, voxel_position.z - 1)
-                )
-                != VoxelKind.NONE
-            ):
+            directions = [
+                Direction.UP,
+                Direction.DOWN,
+                Direction.LEFT,
+                Direction.RIGHT,
+                Direction.FORWARD,
+                Direction.BACKWARD,
+            ]
+            if all(self.get_voxel(voxel_position + d) for d in directions):
                 continue
 
-            positions.append((voxel_position.x, voxel_position.y, voxel_position.z))
+            positions.append(voxel_position.to_pyrr())
             block_ids.append(voxel_kind)
             voxels_count += 1
 
@@ -121,29 +56,31 @@ class World:
 
         return vao, voxels_count
 
-    @classmethod
-    def create(cls, size: int) -> "World":
-        world = cls()
-        half_size = size // 2
-        for x in range(-half_size, half_size):
-            for z in range(-half_size, half_size):
-                world.create_chunk(WCPosition(x, z))
 
-        return world
+def generate_world(world: World) -> None:
+    noise = OpenSimplex(seed=42)
 
-    def serialize(self) -> dict:
-        data = []
-        for position in self.iter_chunks():
-            data.append(
-                {
-                    "position": position,
-                    "chunk": self.get_chunk(position).serialize(),
-                }
+    half_height = world.size.y // 2
+    for z in range(world.size.z):
+        for x in range(world.size.x):
+            y = half_height  # base height
+            y += (
+                noise.noise2(
+                    z / 32,
+                    x / 32,
+                )
+                * half_height
             )
+            y = math.floor(y)  # truncate to integer
 
-        return data
+            # 0 to y - 1 is dirt
+            # y is grass
+            # y to half_height is water
+            for i in range(y):
+                world.set_voxel(VEVector3(x, i, z), VoxelKind.DIRT)
 
-    def save(self, path: str) -> None:
-        data = self.serialize()
-        with open(path, "w") as f:
-            json.dump(data, f, indent=4)
+            if y < half_height:
+                for i in range(y, half_height):
+                    world.set_voxel(VEVector3(x, i, z), VoxelKind.WATER)
+            else:
+                world.set_voxel(VEVector3(x, y, z), VoxelKind.GRASS)

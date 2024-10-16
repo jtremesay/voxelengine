@@ -1,21 +1,18 @@
 import math
-import time
 from pathlib import Path
 
 import moderngl as mgl
 import moderngl_window as mglw
 import moderngl_window.geometry as mglw_geometry
 import moderngl_window.scene as mglw_scene
-import numpy as np
 from pyrr import Matrix44
 
-from ve.chunk import Chunk
-from ve.geometry import WCPosition, WVPosition, world_position_as_chunk_position
-from ve.world import World
+from ve.geometry import VEVector3
+from ve.world import World, generate_world
 
 
 class MainWindow(mglw.WindowConfig):
-    title = "Hello World"
+    title = "Jojo's Vortex Engine"
     gl_version = (3, 3)
     window_size = (800, 600)
     resizable = False
@@ -25,17 +22,25 @@ class MainWindow(mglw.WindowConfig):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+        # Create the world
+        print("Generating world…")
+        size = 32 * 8
+        world = World(VEVector3(size, 32, size))
+        generate_world(world)
+
         # Create an orbit camera that orbits around the chunk
+        world_size = max(world.size.x, world.size.z, world.size.y)
         self.camera = mglw_scene.camera.OrbitCamera(
-            radius=Chunk.SIZE * 2,
+            target=(world.size.x / 2, world.size.y / 2, world.size.z / 2),
+            radius=world_size * 2,
             aspect_ratio=self.aspect_ratio,
             angles=(0.0, 45.0),
-            far=Chunk.SIZE * 16,
+            far=world_size * 16,
         )
 
         # Create a reference ground
         self.ground = mglw_geometry.quad_2d(
-            size=(Chunk.SIZE, Chunk.SIZE),
+            size=(32, 32),
         )
         self.ground_prog = self.load_program("programs/solid_color.glsl")
         self.ground_prog["color"].value = 1.0, 1.0, 1.0, 1.0
@@ -45,13 +50,9 @@ class MainWindow(mglw.WindowConfig):
             Matrix44.from_x_rotation(math.pi / 2, dtype="f4")
         )
 
-        # Create the world
-        print("Generating world…")
-        self.world = World.create(8)
-
         # Create the voxels
         print("Generating mesh…")
-        self.voxel, self.voxels_count = self.world.create_vao()
+        self.voxel, self.voxels_count = world.create_vao()
 
         self.voxel_prog = self.load_program("programs/voxel.glsl")
         self.voxel_prog["m_model"].write(Matrix44.identity(dtype="f4"))
