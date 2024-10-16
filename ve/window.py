@@ -5,9 +5,8 @@ import moderngl as mgl
 import moderngl_window as mglw
 import moderngl_window.geometry as mglw_geometry
 import moderngl_window.scene as mglw_scene
-from pyrr import Matrix44
+from pyrr import Matrix44, Vector3
 
-from ve.geometry import VEVector3
 from ve.world import World, generate_world
 
 
@@ -25,7 +24,7 @@ class MainWindow(mglw.WindowConfig):
         # Create the world
         print("Generating world…")
         size = 32 * 8
-        world = World(VEVector3(size, 32, size))
+        world = World(Vector3((size, 32, size)))
         generate_world(world)
 
         # Create an orbit camera that orbits around the chunk

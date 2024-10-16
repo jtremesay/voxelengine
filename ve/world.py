@@ -7,23 +7,27 @@ from moderngl_window.opengl.vao import VAO
 from opensimplex import OpenSimplex
 from pyrr import Vector3
 
-from ve.geometry import Direction, VEVector3
+from ve.geometry import Direction
 from ve.voxel import VoxelKind
+
+type VoxelKey = tuple[float, float, float]
+import random
 
 
 class World:
-    def __init__(self, size: VEVector3):
+    def __init__(self, size: Vector3):
         self.size = size
-        self.voxels: dict[VEVector3, VoxelKind] = {}
+        self.voxels: dict[VoxelKey, VoxelKind] = {}
 
-    def get_voxel(self, position: VEVector3) -> int:
-        return self.voxels.get(position, VoxelKind.NONE)
+    def get_voxel(self, position: Vector3) -> int:
+        return self.voxels.get((position.x, position.y, position.z), VoxelKind.NONE)
 
-    def set_voxel(self, position: VEVector3, voxel_kind: VoxelKind) -> None:
-        self.voxels[position] = voxel_kind
+    def set_voxel(self, position: Vector3, voxel_kind: VoxelKind) -> None:
+        self.voxels[(position.x, position.y, position.z)] = voxel_kind
 
     def iter_voxels(self) -> Generator[Vector3, None, None]:
-        yield from self.voxels
+        for key in self.voxels.keys():
+            yield Vector3(key)
 
     def create_vao(self) -> tuple[VAO, int]:
         voxels_count = 0
@@ -46,7 +50,7 @@ class World:
             if all(self.get_voxel(voxel_position + d) for d in directions):
                 continue
 
-            positions.append(voxel_position.to_pyrr())
+            positions.append(voxel_position)
             block_ids.append(voxel_kind)
             voxels_count += 1
 
@@ -55,6 +59,29 @@ class World:
         vao.buffer(np.array(block_ids, dtype="i"), "i/i", ["in_block_id"])
 
         return vao, voxels_count
+
+    def get_height(self, x: int, z: int) -> int:
+        y = self.size.y - 1
+        for y in range(self.size.y - 1, -1, -1):
+            voxel_kind = self.get_voxel(Vector3((x, y, z)))
+            if voxel_kind != VoxelKind.NONE:
+                return y
+
+        raise ValueError("No voxel found")
+
+
+def generate_tree(world: World, position: Vector3) -> None:
+    for y in range(5):
+        world.set_voxel(position + Vector3((0, y, 0)), VoxelKind.TRUNK)
+
+    for y in range(5, 8):
+        for x in range(-2, 3):
+            for z in range(-2, 3):
+                world.set_voxel(position + Vector3((x, y, z)), VoxelKind.LEAF)
+
+    for x in range(-1, 2):
+        for z in range(-1, 2):
+            world.set_voxel(position + Vector3((x, 8, z)), VoxelKind.LEAF)
 
 
 def generate_world(world: World) -> None:
@@ -77,10 +104,22 @@ def generate_world(world: World) -> None:
             # y is grass
             # y to half_height is water
             for i in range(y):
-                world.set_voxel(VEVector3(x, i, z), VoxelKind.DIRT)
+                world.set_voxel(Vector3((x, i, z)), VoxelKind.DIRT)
 
             if y < half_height:
                 for i in range(y, half_height):
-                    world.set_voxel(VEVector3(x, i, z), VoxelKind.WATER)
+                    world.set_voxel(Vector3((x, i, z)), VoxelKind.WATER)
             else:
-                world.set_voxel(VEVector3(x, y, z), VoxelKind.GRASS)
+                world.set_voxel(Vector3((x, y, z)), VoxelKind.GRASS)
+
+    # Generate a tree per ~x*x tiles
+    for i in range(world.size.x * world.size.z // (16**2)):
+        voxel_kind = VoxelKind.NONE
+        while voxel_kind != VoxelKind.GRASS:
+            x = random.randint(0, world.size.x - 1)
+            z = random.randint(0, world.size.z - 1)
+            position = Vector3((x, 0, z))
+            position.y = world.get_height(position.x, position.z)
+            voxel_kind = world.get_voxel(position)
+
+        generate_tree(world, position)
